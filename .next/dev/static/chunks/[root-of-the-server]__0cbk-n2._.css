@@ -169,6 +169,8 @@
     --color-rose-400: #ff667f;
     --color-rose-500: #ff2357;
     --color-neutral-950: #0a0a0a;
+    --default-transition-duration: .15s;
+    --default-transition-timing-function: cubic-bezier(.4, 0, .2, 1);
     --default-font-family: var(--font-geist-sans);
     --default-mono-font-family: var(--font-geist-mono);
   }
@@ -559,6 +561,12 @@
   .antialiased {
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+  }
+
+  .transition {
+    transition-property: color, background-color, border-color, outline-color, text-decoration-color, fill, stroke, --tw-gradient-from, --tw-gradient-via, --tw-gradient-to, opacity, box-shadow, transform, translate, scale, rotate, filter, -webkit-backdrop-filter, backdrop-filter, display, content-visibility, overlay, pointer-events;
+    transition-timing-function: var(--tw-ease, var(--default-transition-timing-function));
+    transition-duration: var(--tw-duration, var(--default-transition-duration));
   }
 }
 
@@ -2007,6 +2015,73 @@ input[type="range"]:disabled {
   *, :before, :after {
     transition: none !important;
     animation: none !important;
+  }
+}
+
+.player-options {
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 5px;
+  display: flex;
+}
+
+.fade-control {
+  color: #e3daf5;
+  align-items: center;
+  gap: 9px;
+  font-size: 11px;
+  display: flex;
+}
+
+.fade-control select {
+  color: #e3daf5;
+  cursor: pointer;
+  background: #282330;
+  border: 1px solid #c4b5fd40;
+  border-radius: 6px;
+  padding: 4px 8px;
+  font-size: 11px;
+}
+
+.fade-description {
+  color: var(--muted);
+  font-size: 9px;
+}
+
+.player-options .volume-control {
+  margin-top: 3px;
+}
+
+@media (min-width: 681px) and (max-width: 960px) {
+  .player-bar {
+    grid-template-columns: minmax(0, 1fr) minmax(190px, 1.4fr) 150px;
+    gap: 12px;
+  }
+}
+
+@media (max-width: 680px) {
+  .player-bar {
+    height: 166px;
+  }
+
+  .main-shell {
+    padding-bottom: 180px;
+  }
+
+  .player-options {
+    flex-direction: row;
+    grid-column: 1 / -1;
+    justify-content: center;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .fade-control select {
+    padding: 5px 10px;
+  }
+
+  .fade-description {
+    font-size: 9px;
   }
 }
 

@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "Bollywood Beats",
-  description: "An auto-advancing Bollywood playlist of 20 evergreen hits",
+  description: "A 67-track Bollywood party playlist with adjustable fade transitions in the YouTube player",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

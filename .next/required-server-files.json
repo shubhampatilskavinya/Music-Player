@@ -105,7 +105,7 @@
         "transform": "lodash/{{member}}"
       }
     },
-    "outputFileTracingRoot": "/Users/webdeveloper/Downloads/song_project",
+    "outputFileTracingRoot": "/Users/webdeveloper/Shubham Patil/Development-environment/song_project",
     "enablePrerenderSourceMaps": true,
     "cacheComponents": false,
     "cacheLife": {
@@ -320,14 +320,14 @@
     "htmlLimitedBots": "[\\w-]+-Google|Google-[\\w-]+|Chrome-Lighthouse|Slurp|DuckDuckBot|baiduspider|yandex|sogou|bitlybot|tumblr|vkShare|quora link preview|redditbot|ia_archiver|Bingbot|BingPreview|applebot|facebookexternalhit|facebookcatalog|Twitterbot|LinkedInBot|Slackbot|Discordbot|WhatsApp|SkypeUriPreview|Yeti|googleweblight",
     "bundlePagesRouterDependencies": false,
     "configFileName": "next.config.ts",
-    "repoRoot": "/Users/webdeveloper/Downloads/song_project",
+    "repoRoot": "/Users/webdeveloper/Shubham Patil/Development-environment/song_project",
     "turbopack": {
-      "root": "/Users/webdeveloper/Downloads/song_project"
+      "root": "/Users/webdeveloper/Shubham Patil/Development-environment/song_project"
     },
     "distDirRoot": ".next",
     "supportsImmutableAssets": false
   },
-  "appDir": "/Users/webdeveloper/Downloads/song_project",
+  "appDir": "/Users/webdeveloper/Shubham Patil/Development-environment/song_project",
   "relativeAppDir": "",
   "files": [
     ".next/package.json",

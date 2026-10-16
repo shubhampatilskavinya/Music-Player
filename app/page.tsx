@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { songs, type Song } from "./songs";
+import { playbackGain } from "./playback-fade";
 import {
   MusicNoteIcon,
   NextIcon,
@@ -93,6 +94,7 @@ export default function Home() {
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(clipLength(songs[0].duration));
   const [volume, setVolume] = useState(0.8);
+  const [fadeSeconds, setFadeSeconds] = useState(3);
   const [query, setQuery] = useState("");
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [searchLoading, setSearchLoading] = useState(false);
@@ -102,6 +104,8 @@ export default function Home() {
   const [partyFinished, setPartyFinished] = useState(false);
 
   const playerRef = useRef<YTPlayer | null>(null);
+  const audioSettingsRef = useRef({ volume: 0.8, fadeSeconds: 3 });
+  const gainRef = useRef(0);
   const loadedVideoIdRef = useRef(songs[0].youtubeId);
   const customSongRef = useRef<Song | null>(null);
   const advancingRef = useRef(false);
@@ -222,7 +226,7 @@ export default function Home() {
         events: {
           onReady: (e: YTEvent) => {
             setPlayerReady(true);
-            e.target.setVolume(volume * 100);
+            e.target.setVolume(audioSettingsRef.current.fadeSeconds ? 0 : audioSettingsRef.current.volume * 100);
             attemptPlay(e.target);
           },
           onStateChange: (e: YTEvent) => {
@@ -264,7 +268,6 @@ export default function Home() {
     return () => {
       playerRef.current?.destroy?.();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // The opening video is already loaded when the player is created.
@@ -276,6 +279,8 @@ export default function Home() {
     advancingRef.current = false;
     setCurrentTime(0);
     setDuration(clipLength(currentSong.duration));
+    gainRef.current = audioSettingsRef.current.fadeSeconds ? 0 : 1;
+    player.setVolume(gainRef.current * audioSettingsRef.current.volume * 100);
     player.loadVideoById(currentSong.youtubeId);
     attemptPlay(player);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -295,10 +300,15 @@ export default function Home() {
       const elapsed = player.getCurrentTime() || 0;
       setCurrentTime(Math.min(elapsed, effectiveDuration));
       setDuration(effectiveDuration);
+      if (player.getPlayerState() === window.YT.PlayerState.PLAYING) {
+        const settings = audioSettingsRef.current;
+        gainRef.current = playbackGain(elapsed, effectiveDuration, settings.fadeSeconds);
+        player.setVolume(settings.volume * 100 * gainRef.current);
+      }
       if (elapsed >= effectiveDuration && player.getPlayerState() === window.YT.PlayerState.PLAYING) {
         advanceTrack();
       }
-    }, 500);
+    }, 100);
     return () => clearInterval(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [playerReady, currentIndex, customSong]);
@@ -320,8 +330,10 @@ export default function Home() {
   }, [playerReady]);
 
   useEffect(() => {
-    playerRef.current?.setVolume?.(volume * 100);
-  }, [volume]);
+    audioSettingsRef.current = { volume, fadeSeconds };
+    if (!fadeSeconds) gainRef.current = 1;
+    playerRef.current?.setVolume?.(volume * 100 * gainRef.current);
+  }, [volume, fadeSeconds]);
 
   const handleStart = () => {
     const player = playerRef.current;
@@ -342,6 +354,8 @@ export default function Home() {
       customSongRef.current = null;
       setCustomSong(null);
       loadedVideoIdRef.current = songs[0].youtubeId;
+      gainRef.current = audioSettingsRef.current.fadeSeconds ? 0 : 1;
+      player.setVolume(gainRef.current * audioSettingsRef.current.volume * 100);
       player.loadVideoById(songs[0].youtubeId);
       attemptPlay(player);
       return;
@@ -380,6 +394,8 @@ export default function Home() {
 
   const handleSeek = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = Number(e.target.value);
+    gainRef.current = playbackGain(value, duration, fadeSeconds);
+    playerRef.current?.setVolume?.(volume * 100 * gainRef.current);
     playerRef.current?.seekTo?.(value, true);
     setCurrentTime(value);
   };
@@ -469,7 +485,15 @@ export default function Home() {
       <footer className="player-bar" aria-label="Playback controls">
         <div className="player-song"><span className={`track-art bg-gradient-to-br ${currentSong.gradient}`}><MusicNoteIcon /></span><div><strong>{currentSong.title}</strong><span>{currentSong.artist}</span></div></div>
         <div className="player-center"><div className="transport"><button onClick={goPrev} disabled={!playerReady} aria-label="Previous song"><PrevIcon /></button><button className="play-button" onClick={togglePlayPause} disabled={!playerReady} aria-label={isPlaying ? "Pause" : "Play"}>{isPlaying ? <PauseIcon /> : <PlayIcon />}</button><button onClick={goNext} disabled={!playerReady} aria-label="Next song"><NextIcon /></button></div><div className="seek-control"><span>{formatTime(currentTime)}</span><input aria-label="Seek playback" type="range" min={0} max={duration || 0} step={0.1} value={Math.min(currentTime, duration || 0)} onChange={handleSeek} disabled={!duration} style={{ background: `linear-gradient(to right, #c4b5fd ${progressPct}%, #34313e ${progressPct}%)` }} /><span>{formatTime(duration)}</span></div></div>
-        <div className="volume-control"><VolumeIcon /><input aria-label="Volume" type="range" min={0} max={1} step={0.01} value={volume} onChange={(e) => setVolume(Number(e.target.value))} style={{ background: `linear-gradient(to right, #c4b5fd ${volume * 100}%, #34313e ${volume * 100}%)` }} /><span>{Math.round(volume * 100)}%</span></div>
+        <div className="player-options">
+          <label className="fade-control" title="Fade out, then fade in. YouTube loading may leave a gap.">Crossfade
+            <select aria-label="Crossfade duration" aria-describedby="fade-description" value={fadeSeconds} onChange={e => setFadeSeconds(Number(e.target.value))}>
+              <option value={0}>Off</option><option value={2}>2s</option><option value={3}>3s</option><option value={5}>5s</option><option value={8}>8s</option>
+            </select>
+          </label>
+          <span id="fade-description" className="fade-description">YouTube fade-out / fade-in</span>
+          <div className="volume-control"><VolumeIcon /><input aria-label="Volume" type="range" min={0} max={1} step={0.01} value={volume} onChange={(e) => setVolume(Number(e.target.value))} style={{ background: `linear-gradient(to right, #c4b5fd ${volume * 100}%, #34313e ${volume * 100}%)` }} /><span>{Math.round(volume * 100)}%</span></div>
+        </div>
       </footer>
     </div>
   );
