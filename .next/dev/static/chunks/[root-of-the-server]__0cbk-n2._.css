@@ -169,8 +169,6 @@
     --color-rose-400: #ff667f;
     --color-rose-500: #ff2357;
     --color-neutral-950: #0a0a0a;
-    --default-transition-duration: .15s;
-    --default-transition-timing-function: cubic-bezier(.4, 0, .2, 1);
     --default-font-family: var(--font-geist-sans);
     --default-mono-font-family: var(--font-geist-mono);
   }
@@ -457,6 +455,10 @@
     display: flex;
   }
 
+  .hidden {
+    display: none;
+  }
+
   .h-full {
     height: 100%;
   }
@@ -561,12 +563,6 @@
   .antialiased {
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
-  }
-
-  .transition {
-    transition-property: color, background-color, border-color, outline-color, text-decoration-color, fill, stroke, --tw-gradient-from, --tw-gradient-via, --tw-gradient-to, opacity, box-shadow, transform, translate, scale, rotate, filter, -webkit-backdrop-filter, backdrop-filter, display, content-visibility, overlay, pointer-events;
-    transition-timing-function: var(--tw-ease, var(--default-transition-timing-function));
-    transition-duration: var(--tw-duration, var(--default-transition-duration));
   }
 }
 
@@ -2082,6 +2078,204 @@ input[type="range"]:disabled {
 
   .fade-description {
     font-size: 9px;
+  }
+}
+
+.screen-actions {
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 10px 0;
+  display: flex;
+}
+
+.screen-actions a, .screen-actions button, .tv-toolbar button {
+  color: #e5ddff;
+  background: #c4b5fd12;
+  border: 1px solid #c4b5fd55;
+  border-radius: 7px;
+  min-height: 42px;
+  padding: 10px 12px;
+  font-size: 12px;
+}
+
+.screen-actions a:focus-visible, .screen-actions button:focus-visible {
+  outline: 2px solid var(--accent);
+}
+
+.topbar {
+  flex-wrap: wrap;
+  height: auto;
+  min-height: 91px;
+  padding-block: 12px;
+}
+
+.youtube-host {
+  background: #000;
+  width: 100%;
+  min-height: 200px;
+}
+
+.youtube-host iframe {
+  aspect-ratio: 16 / 9;
+  border: 0;
+  width: 100%;
+  min-height: 200px;
+  display: block;
+}
+
+.youtube-player {
+  width: 100%;
+  min-width: 0;
+}
+
+.tv-screen {
+  background: #000;
+  flex-direction: column;
+  min-height: 100dvh;
+  padding: 14px 24px;
+  display: flex;
+}
+
+.tv-toolbar {
+  justify-content: space-between;
+  align-items: center;
+  gap: 15px;
+  margin-bottom: 12px;
+  display: flex;
+}
+
+.tv-toolbar a {
+  color: #e5ddff;
+}
+
+.tv-video {
+  flex: 1;
+  align-items: center;
+  display: grid;
+}
+
+.tv-video .youtube-host iframe {
+  height: max(240px, 100dvh - 230px);
+}
+
+.tv-screen footer {
+  text-align: center;
+  padding: 10px;
+}
+
+.tv-screen h1 {
+  letter-spacing: 0;
+  font-size: clamp(20px, 3vw, 34px);
+}
+
+.tv-screen footer p {
+  color: var(--muted);
+  margin-top: 8px;
+  font-size: 13px;
+}
+
+@media (max-width: 960px) {
+  .now-playing {
+    display: block;
+  }
+
+  .topbar .screen-actions {
+    flex-shrink: 0;
+  }
+
+  .topbar .search-box {
+    flex: 1;
+    min-width: 180px;
+  }
+}
+
+.screen-help {
+  color: var(--muted);
+  overflow-wrap: anywhere;
+  margin-bottom: 18px;
+  font-size: 12px;
+  line-height: 1.7;
+}
+
+.tv-view-toolbar {
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  padding: 8px 24px;
+  display: flex;
+}
+
+.tv-view-toolbar[hidden] {
+  display: none;
+}
+
+.display-view {
+  background: #050506;
+  min-height: 100dvh;
+  display: block;
+}
+
+.display-view > .sidebar, .display-view .topbar, .display-view .content > .screen-help, .display-view .playlist-hero, .display-view .youtube-results, .display-view .track-section, .display-view > .player-bar, .display-view .now-heading, .display-view .listening-note {
+  display: none;
+}
+
+.display-view .main-shell {
+  margin: 0;
+  padding: 0;
+}
+
+.display-view .content {
+  padding: 0 24px 16px;
+}
+
+.display-view .library-layout {
+  margin: 0;
+  display: block;
+}
+
+.display-view .now-playing {
+  background: none;
+  border: 0;
+  padding: 0;
+  display: block;
+  position: static;
+}
+
+.display-view .youtube-host iframe {
+  height: max(240px, 100dvh - 265px);
+}
+
+.display-view .now-song {
+  text-align: center;
+}
+
+.display-view .now-song h3 {
+  font-size: clamp(20px, 2.5vw, 32px);
+}
+
+.display-view .movie-tag {
+  display: none;
+}
+
+.display-view .up-next {
+  max-width: 500px;
+  margin: 12px auto 0;
+  padding-top: 10px;
+}
+
+.display-view .up-next .eyebrow {
+  display: none;
+}
+
+@media (max-width: 680px) {
+  .tv-view-toolbar {
+    flex-wrap: wrap;
+    padding: 8px 12px;
+  }
+
+  .display-view .content {
+    padding-inline: 12px;
   }
 }
 

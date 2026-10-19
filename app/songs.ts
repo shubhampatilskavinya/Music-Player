@@ -21,9 +21,8 @@ const gradients = [
   "from-pink-500 to-rose-400",
 ];
 
-// The first 25 tracks preserve the screenshot order and approximate clip times.
-// Additional DJ remixes bring the planned party queue to exactly 3 hours.
-// Shararat's 2:00–2:30 range uses its upper bound for playback.
+// Historical clip labels are retained as catalog metadata only.
+// Playback uses the complete duration reported by YouTube.
 const catalog: Array<[string, string, string, string, string, string?]> = [
   ["Aaj Ki Raat", "Madhubanti Bagchi, Divya Kumar", "Stree 2", "1:30", "feGID1WiC1Q"],
   ["Aayi Nai", "Pawan Singh, Simran Choudhary, Divya Kumar", "Stree 2", "1:15", "UXW_e7j1iQA"],

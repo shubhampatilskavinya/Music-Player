@@ -34,10 +34,24 @@ function collectVideos(value: unknown, results: VideoResult[]) {
 
 export async function GET(request: Request) {
   const query = new URL(request.url).searchParams.get("q")?.trim() ?? "";
-  if (query.length < 2 || query.length > 120) {
-    return Response.json({ error: "Enter 2–120 characters to search." }, { status: 400 });
+  if (query.length < 2 || query.length > 300) {
+    return Response.json({ error: "Enter 2–300 characters to search." }, { status: 400 });
   }
 
+  let videoId = /^[\w-]{11}$/.test(query) ? query : '';
+  try {
+    const url = new URL(query);
+    if (['youtube.com', 'www.youtube.com', 'm.youtube.com', 'music.youtube.com'].includes(url.hostname)) videoId = url.searchParams.get('v') || (/^\/(shorts|embed|live)\//.test(url.pathname) ? url.pathname.split('/')[2] : '');
+    if (url.hostname === 'youtu.be') videoId = url.pathname.slice(1);
+  } catch { /* Plain text search. */ }
+  if (/^[\w-]{11}$/.test(videoId)) {
+    let title = `YouTube video · ${videoId}`, channel = 'YouTube';
+    try {
+      const response = await fetch(`https://www.youtube.com/oembed?url=${encodeURIComponent(`https://www.youtube.com/watch?v=${videoId}`)}&format=json`, { signal: AbortSignal.timeout(4000) });
+      if (response.ok) { const data = await response.json(); title = data.title || title; channel = data.author_name || channel; }
+    } catch { /* Direct video links remain usable without metadata. */ }
+    return Response.json({ results: [{ videoId, title, channel, duration: 'Full video' }] });
+  }
   try {
     const response = await fetch(
       `https://www.youtube.com/results?search_query=${encodeURIComponent(query)}`,
@@ -65,6 +79,6 @@ export async function GET(request: Request) {
     collectVideos(data, results);
     return Response.json({ results: results.slice(0, 12) });
   } catch {
-    return Response.json({ error: "Search is temporarily unavailable. Try again in a moment." }, { status: 502 });
+    return Response.json({ error: "Search is temporarily unavailable. Paste a YouTube video link or try again." }, { status: 502 });
   }
 }

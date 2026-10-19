@@ -178,3 +178,39 @@ input[type=range]:disabled { opacity: .45; cursor: default; }
   .fade-control select { padding: 5px 10px; }
   .fade-description { font-size: 9px; }
 }
+
+.screen-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 10px 0; }
+.screen-actions a, .screen-actions button, .tv-toolbar button { padding: 10px 12px; border-radius: 7px; border: 1px solid #c4b5fd55; color: #e5ddff; background: #c4b5fd12; font-size: 12px; min-height: 42px; }
+.screen-actions a:focus-visible, .screen-actions button:focus-visible { outline: 2px solid var(--accent); }
+.topbar { height: auto; min-height: 91px; flex-wrap: wrap; padding-block: 12px; }
+.youtube-host { width: 100%; min-height: 200px; background: black; }
+.youtube-host iframe { display: block; width: 100%; min-height: 200px; aspect-ratio: 16 / 9; border: 0; }
+.youtube-player { min-width: 0; width: 100%; }
+.tv-screen { min-height: 100dvh; background: black; padding: 14px 24px; display: flex; flex-direction: column; }
+.tv-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 15px; margin-bottom: 12px; }
+.tv-toolbar a { color: #e5ddff; }
+.tv-video { flex: 1; display: grid; align-items: center; }
+.tv-video .youtube-host iframe { height: max(240px, calc(100dvh - 230px)); }
+.tv-screen footer { text-align: center; padding: 10px; }
+.tv-screen h1 { font-size: clamp(20px, 3vw, 34px); letter-spacing: 0; }
+.tv-screen footer p { color: var(--muted); font-size: 13px; margin-top: 8px; }
+@media (max-width: 960px) { .now-playing { display: block; }.topbar .screen-actions { flex-shrink: 0; }.topbar .search-box { flex: 1; min-width: 180px; } }
+
+.screen-help { color: var(--muted); font-size: 12px; line-height: 1.7; margin-bottom: 18px; overflow-wrap: anywhere; }
+
+/* Screen modes resize the existing player without remounting its iframe. */
+.tv-view-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 8px 24px; }
+.tv-view-toolbar[hidden] { display: none; }
+.display-view { display: block; min-height: 100dvh; background: #050506; }
+.display-view > .sidebar, .display-view .topbar, .display-view .content > .screen-help, .display-view .playlist-hero, .display-view .youtube-results, .display-view .track-section, .display-view > .player-bar, .display-view .now-heading, .display-view .listening-note { display: none; }
+.display-view .main-shell { margin: 0; padding: 0; }
+.display-view .content { padding: 0 24px 16px; }
+.display-view .library-layout { display: block; margin: 0; }
+.display-view .now-playing { display: block; position: static; padding: 0; border: 0; background: transparent; }
+.display-view .youtube-host iframe { height: max(240px, calc(100dvh - 265px)); }
+.display-view .now-song { text-align: center; }
+.display-view .now-song h3 { font-size: clamp(20px, 2.5vw, 32px); }
+.display-view .movie-tag { display: none; }
+.display-view .up-next { max-width: 500px; margin: 12px auto 0; padding-top: 10px; }
+.display-view .up-next .eyebrow { display: none; }
+@media (max-width: 680px) { .tv-view-toolbar { padding: 8px 12px; flex-wrap: wrap; }.display-view .content { padding-inline: 12px; } }

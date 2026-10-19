@@ -3,5 +3,8 @@
   "/_global-error/page": "app/_global-error/page.js",
   "/api/search/route": "app/api/search/route.js",
   "/favicon.ico/route": "app/favicon.ico/route.js",
-  "/page": "app/page.js"
+  "/api/session/route": "app/api/session/route.js",
+  "/ipad/page": "app/ipad/page.js",
+  "/page": "app/page.js",
+  "/tv/page": "app/tv/page.js"
 }

@@ -14,7 +14,18 @@
       "regex": "^(?:/((?:[^/]+?)(?:/(?:[^/]+?))*))/$"
     }
   ],
-  "headers": [],
+  "headers": [
+    {
+      "source": "/:path*",
+      "headers": [
+        {
+          "key": "Referrer-Policy",
+          "value": "strict-origin-when-cross-origin"
+        }
+      ],
+      "regex": "^(?:/((?:[^/]+?)(?:/(?:[^/]+?))*))?(?:/)?$"
+    }
+  ],
   "onMatchHeaders": [],
   "rewrites": {
     "beforeFiles": [],
@@ -48,10 +59,28 @@
       "namedRegex": "^/api/search(?:/)?$"
     },
     {
+      "page": "/api/session",
+      "regex": "^/api/session(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/session(?:/)?$"
+    },
+    {
       "page": "/favicon.ico",
       "regex": "^/favicon\\.ico(?:/)?$",
       "routeKeys": {},
       "namedRegex": "^/favicon\\.ico(?:/)?$"
+    },
+    {
+      "page": "/ipad",
+      "regex": "^/ipad(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/ipad(?:/)?$"
+    },
+    {
+      "page": "/tv",
+      "regex": "^/tv(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/tv(?:/)?$"
     }
   ],
   "dataRoutes": [],

@@ -7,7 +7,9 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "node --test tests/*.test.mjs"
+    "test": "node --test tests/*.test.mjs",
+    "test:integration": "node tests/session.integration.mjs",
+    "test:browser": "node tests/screens.browser.mjs"
   },
   "dependencies": {
     "next": "16.3.8",
