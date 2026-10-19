@@ -3,8 +3,8 @@
   "/_global-error/page": "/_global-error",
   "/api/search/route": "/api/search",
   "/favicon.ico/route": "/favicon.ico",
-  "/api/session/route": "/api/session",
   "/ipad/page": "/ipad",
   "/page": "/",
-  "/tv/page": "/tv"
+  "/tv/page": "/tv",
+  "/api/session/route": "/api/session"
 }
