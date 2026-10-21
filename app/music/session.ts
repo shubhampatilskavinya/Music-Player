@@ -31,12 +31,13 @@ export function changeSession(s: Session, cmd: Command, client: string, now = Da
       break;
     }
     case 'release': if (s.owner?.previous === client) { s.owner.readyAt = now; delete s.owner.previous; } break;
+    case 'play-next':
     case 'append':
     case 'append-play': {
       const song = cmd.song;
       if (!song || typeof song.youtubeId !== 'string' || !/^[\w-]{11}$/.test(song.youtubeId) || typeof song.title !== 'string' || !song.title.trim()) throw Error('Invalid song');
       if (s.queue.length >= 500) throw Error('Playlist is full (500 songs).');
-      s.queue.push({ id: Math.max(...s.queue.map(t => t.id), 0) + 1, youtubeId: song.youtubeId, title: song.title.slice(0, 250), artist: String(song.artist || 'YouTube').slice(0, 150), movie: 'YouTube request', duration: '', external: true, gradient: 'from-fuchsia-500 to-indigo-500' });
+      s.queue.splice(cmd.type === 'play-next' ? s.index + 1 : s.queue.length, 0, { id: Math.max(...s.queue.map(t => t.id), 0) + 1, youtubeId: song.youtubeId, title: song.title.slice(0, 250), artist: String(song.artist || 'YouTube').slice(0, 150), movie: 'YouTube request', duration: '', external: true, gradient: 'from-fuchsia-500 to-indigo-500' });
       if (cmd.type === 'append-play') { select(s.queue.length - 1); s.playing = true; }
       break;
     }

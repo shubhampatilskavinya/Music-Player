@@ -65,3 +65,23 @@ test('search Play appends and starts the exact new song atomically, preserving o
  changeSession(s,{type:'append',song:{youtubeId:'M7lc1UVf-VE',title:'Later request'}},'b');
  assert.equal(s.queue[s.index].title,'Play request');
 });
+
+test('play next inserts requests after the current song without interrupting playback', () => {
+ for (const playing of [true,false]) {
+  const s=initialSession(), original=structuredClone(s.queue);
+  s.index=3;s.playing=playing;s.time=85;s.seek=30;s.serial=7;s.duration=240;
+  for (const title of ['First request','Latest request']) changeSession(s,{type:'play-next',song:{youtubeId:'M7lc1UVf-VE',title}},'guest');
+  assert.deepEqual(s.queue.slice(0,4),original.slice(0,4));
+  assert.deepEqual(s.queue.slice(4,6).map(x=>x.title),['Latest request','First request']);
+  assert.deepEqual(s.queue.slice(6),original.slice(4));
+  assert.deepEqual([s.index,s.playing,s.time,s.seek,s.serial,s.duration],[3,playing,85,30,7,240]);
+  const before=structuredClone(s);
+  assert.throws(()=>changeSession(s,{type:'play-next',song:{youtubeId:'invalid',title:'Bad'}},'guest'));
+  assert.deepEqual(s,before);
+ }
+ const s=initialSession();s.index=s.queue.length-1;
+ changeSession(s,{type:'play-next',song:{youtubeId:'M7lc1UVf-VE',title:'After last'}},'guest');
+ assert.equal(s.queue.at(-1).title,'After last');
+ while(s.queue.length<500) s.queue.push({...s.queue[0],id:s.queue.length+1});
+ assert.throws(()=>changeSession(s,{type:'play-next',song:{youtubeId:'M7lc1UVf-VE',title:'Over limit'}},'guest'),/full/);
+});

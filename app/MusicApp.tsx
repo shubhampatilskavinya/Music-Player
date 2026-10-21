@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { songs, type Song } from "./songs";
 import { MusicNoteIcon, NextIcon, PauseIcon, PlayIcon, PrevIcon, SearchIcon, VolumeIcon } from "./icons";
 import { useSession } from "./music/use-session";
@@ -28,6 +28,8 @@ export default function MusicApp({ tv = false, ipad = false }: { tv?: boolean; i
   const volume = state?.volume ?? .8;
   const fadeSeconds = state?.fade ?? 3;
   const [query, setQuery] = useState('');
+  const [selectedResult, setSelectedResult] = useState<string | null>(null);
+  const [addingRequest, setAddingRequest] = useState(false);
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [searchLoading, setSearchLoading] = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
@@ -35,7 +37,8 @@ export default function MusicApp({ tv = false, ipad = false }: { tv?: boolean; i
   const [address, setAddress] = useState('');
   // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { setAddress(location.origin); }, []);
-  const visibleSongs = useMemo(() => playlist.map((song, index) => ({ song, index })).filter(({song}) => `${song.title} ${song.artist} ${song.movie}`.toLowerCase().includes(query.trim().toLowerCase())), [query, playlist]);
+  // Searching for a request must never hide the saved queue.
+  const visibleSongs = playlist.map((song, index) => ({ song, index }));
   useEffect(() => {
     const search = query.trim();
     if (search.length < 2) return;
@@ -64,15 +67,23 @@ export default function MusicApp({ tv = false, ipad = false }: { tv?: boolean; i
 
   const updateQuery = (value: string) => {
     setQuery(value);
+    setSelectedResult(null);
     setSearchResults([]);
     setSearchError(null);
     setSearchLoading(value.trim().length >= 2);
   };
 
-  const playSearchResult = async (result: SearchResult) => {
-    window.dispatchEvent(new Event('mirc-sound'));
+  const playSearchResult = async (result: SearchResult, type: 'play-next' | 'append' | 'append-play') => {
+    if (addingRequest) return;
+    setAddingRequest(true);
+    if (type === 'append-play') window.dispatchEvent(new Event('mirc-sound'));
     const song: Song = { id: 0, title: result.title, artist: result.channel, movie: 'YouTube request', duration: '', gradient: 'from-fuchsia-500 to-indigo-500', youtubeId: result.videoId };
-    if (await send({ type: 'append-play', song })) { setFeedback(`Playing ${result.title}. Added to your playlist.`); updateQuery(''); }
+    try {
+      if (await send({ type, song })) {
+        setFeedback(type === 'append-play' ? `Playing ${result.title}. Added to your playlist.` : type === 'play-next' ? `${result.title} will play next.` : `${result.title} added to the end of your queue.`);
+        updateQuery('');
+      }
+    } finally { setAddingRequest(false); }
   };
   const togglePlayPause = () => { if (!isPlaying) window.dispatchEvent(new Event('mirc-play')); void send({ type: isPlaying ? 'pause' : 'play' }); };
   const selectSong = (index: number) => { if (index === currentIndex) return togglePlayPause(); window.dispatchEvent(new Event('mirc-sound')); void send({ type: 'select', value: index }); };
@@ -82,7 +93,7 @@ export default function MusicApp({ tv = false, ipad = false }: { tv?: boolean; i
   const setFadeSeconds = (value: number) => void send({ type: 'fade', value });
   const handleSeek = (e: React.ChangeEvent<HTMLInputElement>) => void send({ type: 'seek', value: Number(e.target.value) });
   const progressPct = duration > 0 ? currentTime / duration * 100 : 0;
-  const fullscreen = async () => { try { await document.documentElement.requestFullscreen(); } catch { setFeedback('Use the video fullscreen button or your browser fullscreen option.'); } };
+  const fullscreen = async () => { try { const video = document.querySelector<HTMLElement>(".youtube-host"); if (!video?.requestFullscreen) throw new Error("Fullscreen unavailable"); await video.requestFullscreen(); } catch { setFeedback('Tap the fullscreen icon inside the YouTube video. For TV mirroring, rotate your iPad to landscape.'); } };
   const switchScreen = (next: 'controller' | 'ipad' | 'tv') => {
     // Keep the same iframe and its browser audio permission alive.
     if (isPlaying) window.dispatchEvent(new Event('mirc-play'));
@@ -106,15 +117,15 @@ export default function MusicApp({ tv = false, ipad = false }: { tv?: boolean; i
       <div className="main-shell">
         <header className="topbar">
           <span className="topbar-title">Your music, on the big screen</span>
-          <label className="search-box"><SearchIcon /><input aria-label="Search any song on YouTube" value={query} onChange={(e) => updateQuery(e.target.value)} placeholder="Search any song on YouTube…" />{query && <button aria-label="Clear search" onClick={() => updateQuery("")}>×</button>}</label>
+          <label className="search-box"><SearchIcon /><input type="search" autoCorrect="off" autoCapitalize="none" autoComplete="off" spellCheck={false} enterKeyHint="search" aria-label="Search any song on YouTube" value={query} onChange={(e) => updateQuery(e.target.value)} placeholder="Search songs in Hinglish, Hindi or English…" />{query && <button aria-label="Clear search" onClick={() => updateQuery("")}>×</button>}</label>
           <nav className="screen-actions" aria-label="Choose screen"><button data-screen="ipad" aria-pressed={screen === "ipad"} onClick={() => switchScreen("ipad")}>iPad screen</button><button data-screen="tv" aria-pressed={tvView} onClick={() => switchScreen("tv")}>TV screen</button></nav>
         </header>
 
         <main id="playlist" className="content">
-          <p className="screen-help">TV/iPad buttons switch this screen without restarting your song. For a separate TV, open <strong>{address}/tv</strong> on the same Wi-Fi. <a href="/tv" target="_blank" rel="noreferrer">Open separate TV window ↗</a></p>
+          <p className="screen-help">TV/iPad buttons switch this screen without restarting your song. For iPad mirroring, rotate to landscape and tap TV screen for fullscreen video. For a separate TV, open <strong>{address}/tv</strong> on the same Wi-Fi. <a href="/tv" target="_blank" rel="noreferrer">Open separate TV window ↗</a></p>
           <section className="playlist-hero" aria-labelledby="playlist-title">
             <div className="playlist-art" aria-hidden="true"><span className="art-caption">FULL-LENGTH MUSIC</span><div className="vinyl"><div className="vinyl-label"><MusicNoteIcon /></div></div><span className="art-title">mirc<br /><i>beats.</i></span><span className="art-edition">VOL. 01 / {playlist.length} REMIXES</span></div>
-            <div className="hero-copy"><span className="eyebrow"><span className="status-dot" /> YOUR PARTY STARTS HERE</span><h1 id="playlist-title">Mirc Beats<br /><span>Party Mix.</span></h1><p>Full songs, in order. Search and play any song immediately; it is also saved at the end of your playlist. Open the TV screen and use your iPad to control playback.</p><div className="playlist-meta"><span className="curator-mark"><MusicNoteIcon /></span><strong>Mirc Beats</strong><span>·</span><span>{playlist.length} remixes</span><span>·</span><span>Full-length playback</span></div><button className="primary-button" onClick={togglePlayPause} disabled={!playerReady}>{isPlaying ? <PauseIcon /> : <PlayIcon />}{isPlaying ? "Pause playlist" : "Play playlist"}</button></div>
+            <div className="hero-copy"><span className="eyebrow"><span className="status-dot" /> YOUR PARTY STARTS HERE</span><h1 id="playlist-title">Mirc Beats<br /><span>Party Mix.</span></h1><p>Full songs, in order. Search a song, then choose Play next, Add to queue, or Play now. Open the TV screen and use your iPad to control playback.</p><div className="playlist-meta"><span className="curator-mark"><MusicNoteIcon /></span><strong>Mirc Beats</strong><span>·</span><span>{playlist.length} remixes</span><span>·</span><span>Full-length playback</span></div><button className="primary-button" onClick={togglePlayPause} disabled={!playerReady}>{isPlaying ? <PauseIcon /> : <PlayIcon />}{isPlaying ? "Pause playlist" : "Play playlist"}</button></div>
           </section>
 
           {query.trim().length >= 2 && (
@@ -124,11 +135,18 @@ export default function MusicApp({ tv = false, ipad = false }: { tv?: boolean; i
               {!searchLoading && !searchError && searchResults.length === 0 && <p className="search-feedback">No videos found. Try a different song name.</p>}
               <div className="youtube-result-list">
                 {searchResults.map((result) => (
-                  <button key={result.videoId} className="youtube-result" onClick={() => playSearchResult(result)} aria-label={`Play ${result.title} now`}>
+                  <div key={result.videoId} className="youtube-result-item">
+                  <button className="youtube-result" aria-expanded={selectedResult === result.videoId} aria-controls={`request-${result.videoId}`} onClick={() => setSelectedResult(selectedResult === result.videoId ? null : result.videoId)} aria-label={`Choose how to play ${result.title}`}>
                     <span className="track-art bg-gradient-to-br from-fuchsia-500 to-indigo-500"><PlayIcon /></span>
                     <span className="youtube-result-copy"><strong>{result.title}</strong><small>{result.channel}</small></span>
-                    <span className="track-duration">▶ Play</span>
+                    <span className="track-duration">Choose ▾</span>
                   </button>
+                  <div id={`request-${result.videoId}`} className="request-actions" hidden={selectedResult !== result.videoId} aria-label={`Options for ${result.title}`}>
+                    <button disabled={addingRequest} onClick={() => void playSearchResult(result, "play-next")}>Play next</button>
+                    <button disabled={addingRequest} onClick={() => void playSearchResult(result, "append")}>Add to queue</button>
+                    <button disabled={addingRequest} onClick={() => void playSearchResult(result, "append-play")}>Play now</button>
+                  </div>
+                  </div>
                 ))}
               </div>
             </section>
@@ -162,7 +180,7 @@ export default function MusicApp({ tv = false, ipad = false }: { tv?: boolean; i
               <YouTubePlayer connection={connection} />
               <div className="now-song">{feedback && displayView && <p role="status">{feedback}</p>}{connection.error && displayView && <p role="alert">{connection.error}</p>}<h3>{currentSong.title}</h3><p>{currentSong.artist}</p><span className="movie-tag">{currentSong.movie}</span></div>
               <div className="up-next"><span className="eyebrow">UP NEXT</span><button onClick={goNext}><span className={`track-art bg-gradient-to-br ${upcomingSong.gradient}`}><MusicNoteIcon /></span><span><strong>{upcomingSong.title}</strong><small>{upcomingSong.artist}</small></span><NextIcon /></button></div>
-              <p className="listening-note">Search requests play immediately and stay in your playlist. Existing songs remain in order.</p>
+              <p className="listening-note">Play next and Add to queue keep the current song playing. Play now starts your request immediately.</p>
             </aside>
           </div>
         </main>
