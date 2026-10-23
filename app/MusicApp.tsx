@@ -90,7 +90,13 @@ export default function MusicApp({ tv = false, ipad = false, identity, partyCode
       }
     } finally { setAddingRequest(false); }
   };
-  const togglePlayPause = () => { if (!isPlaying) window.dispatchEvent(new Event('mirc-play')); void send({ type: isPlaying ? 'pause' : 'play' }); };
+  // Always dispatch, even when pausing: on a fresh page load the session can already say
+  // "playing" (e.g. the party was already going), so the browser blocks that unrequested
+  // autoplay and the very next click here is this screen's first real user gesture - its
+  // only chance to unlock sound. Gating this on "only when starting playback" meant a
+  // blocked screen's first click (often a pause, since the button already reads "Pause")
+  // never unlocked audio at all.
+  const togglePlayPause = () => { window.dispatchEvent(new Event('mirc-play')); void send({ type: isPlaying ? 'pause' : 'play' }); };
   const selectSong = (index: number) => { if (index === currentIndex) return togglePlayPause(); window.dispatchEvent(new Event('mirc-sound')); void send({ type: 'select', value: index }); };
   const goPrev = () => void send({ type: 'previous' });
   const goNext = () => void send({ type: 'next' });
