@@ -14,8 +14,21 @@ export function useSession(tv: boolean) {
     setState(old => !old || next.revision >= old.revision ? next : old);
     lastContact.current = Date.now(); setConnected(true);
   }, []);
-  // eslint-disable-next-line react-hooks/set-state-in-effect
-  useEffect(() => { setClient(id()); }, []);
+  useEffect(() => {
+    // Persist per-tab (not per-browser) so a refresh keeps this exact device's lease
+    // instead of minting a new id the server treats as a second, competing screen -
+    // which otherwise has to wait out the old (now-gone) id's full lease before this
+    // tab can own audio again. A new tab still gets its own id, preserving the
+    // same-role conflict handling between genuinely separate devices.
+    let stored = '';
+    try { stored = sessionStorage.getItem('mirc_client') || ''; } catch { /* private browsing, etc. */ }
+    if (!/^[a-f0-9]{32}$/.test(stored)) {
+      stored = id();
+      try { sessionStorage.setItem('mirc_client', stored); } catch { /* fall back to in-memory only */ }
+    }
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setClient(stored);
+  }, []);
   const send = useCallback((command: Command): Promise<Session | null> => {
     if (!client) return Promise.resolve(null);
     const requestId = id();
