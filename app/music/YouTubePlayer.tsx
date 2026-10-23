@@ -5,7 +5,7 @@ import { playbackGain } from '../playback-fade';
 import type { Connection } from './use-session';
 type Player = { isMuted(): boolean; mute(): void; unMute(): void; playVideo(): void; pauseVideo(): void; destroy(): void; setVolume(n: number): void; getCurrentTime(): number; getDuration(): number; getPlayerState(): number; loadVideoById(v: { videoId: string; startSeconds: number }): void; cueVideoById(v: { videoId: string; startSeconds: number }): void; seekTo(n: number, ahead: boolean): void };
 type Event = { target: Player; data: number };
-type API = { Player: new (host: HTMLElement, options: { videoId: string; playerVars: Record<string, string | number>; events: { onReady(e: Event): void; onStateChange(e: Event): void; onError(e: Event): void; onAutoplayBlocked(): void } }) => Player };
+type API = { Player: new (host: HTMLElement, options: { playerVars: Record<string, string | number>; events: { onReady(e: Event): void; onStateChange(e: Event): void; onError(e: Event): void; onAutoplayBlocked(): void } }) => Player };
 declare global { interface Window { YT?: API; onYouTubeIframeAPIReady?: () => void } }
 let loading: Promise<API> | null = null;
 function loadAPI(): Promise<API> {
@@ -49,7 +49,10 @@ export default function YouTubePlayer({ connection }: { connection: Connection }
     void loadAPI().then(YT => {
       if (disposed) return;
       instance = new YT.Player(mount, {
-        videoId: latest.current.state!.queue[latest.current.state!.index].youtubeId,
+        // No initial videoId: the ready-triggered effect below loads the current
+        // track exactly once, with the correct resume position. Passing a videoId
+        // here too would cue it a second time, racing that effect's own load and
+        // producing a visible mute/pause glitch on the very first track shown.
         playerVars: { autoplay: 0, controls: 1, fs: 1, playsinline: 1, rel: 0, origin: location.origin },
         events: {
           onReady: e => { if (disposed) return; player.current = e.target; if (!latest.current.owner) e.target.mute(); setReady(n => n + 1); },
