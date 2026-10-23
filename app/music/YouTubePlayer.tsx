@@ -82,7 +82,11 @@ export default function YouTubePlayer({ connection }: { connection: Connection }
     const tick = setInterval(() => {
       const p = player.current, s = latest.current.state;
       if (!p || !s) return;
-      if (!latest.current.connected || !s.owner || s.owner.expires <= Date.now()) { p.mute(); p.pauseVideo(); return; }
+      // Mute only, never hard-pause here: a backgrounded/throttled tab (screen lock, app
+      // switch) can miss a heartbeat and look briefly "disconnected" even though nothing
+      // is actually wrong. Pausing would visibly restart the video on every such blip;
+      // muting just goes quiet and resumes in sync once the heartbeat catches up.
+      if (!latest.current.connected || !s.owner || s.owner.expires <= Date.now()) { p.mute(); return; }
       if (!latest.current.owner && !localSound.current) { p.mute(); return; }
       if (blocked.current) p.mute();
       p.setVolume(s.volume * 100 * (p.getPlayerState() === 1 ? playbackGain(p.getCurrentTime(), p.getDuration(), s.fade) : 1));

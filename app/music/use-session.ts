@@ -39,7 +39,11 @@ export function useSession(tv: boolean) {
     };
     void poll();
     const watchdog = setInterval(() => { setNow(Date.now()); if (Date.now() - lastContact.current > 10000) setConnected(false); }, 250);
-    return () => { cancelled = true; clearTimeout(timer); clearInterval(watchdog); };
+    // A backgrounded tab/screen-locked device throttles timers, so the next scheduled
+    // heartbeat can be badly delayed. Firing one immediately on return shortens that gap.
+    const onVisible = () => { if (document.visibilityState === 'visible') { clearTimeout(timer); void poll(); } };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => { cancelled = true; clearTimeout(timer); clearInterval(watchdog); document.removeEventListener('visibilitychange', onVisible); };
   }, [client, tv, send]);
   const owner = connected && !!state?.owner && state.owner.id === client && state.owner.readyAt <= now && state.owner.expires > now;
   return { state, send, client, owner, connected, error, tv, connecting: connected && state?.owner?.id === client && !owner };
