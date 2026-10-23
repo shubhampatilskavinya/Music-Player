@@ -60,7 +60,7 @@ function remoteStore() {
   const redis: RedisCommand = async args => {
     let response: Response;
     try {
-      response = await fetch(endpoint, { method: 'POST', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify(args), cache: 'no-store', signal: AbortSignal.timeout(2500) });
+      response = await fetch(endpoint, { method: 'POST', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify(args), cache: 'no-store', signal: AbortSignal.timeout(6000) });
     } catch { throw new SessionStoreError('Session storage is temporarily unreachable. Please retry.'); }
     if (!response.ok) throw new SessionStoreError(response.status === 401 || response.status === 403 ? 'Redis credentials were rejected. Check the server environment variables.' : 'Session storage is temporarily unavailable. Please retry.');
     let data: { result?: unknown; error?: unknown };

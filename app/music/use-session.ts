@@ -21,7 +21,7 @@ export function useSession(tv: boolean) {
     const requestId = id();
     const work = serial.current.then(async () => {
       try {
-        const response = await fetch('/api/session', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ client, requestId, command }), signal: AbortSignal.timeout(3000) });
+        const response = await fetch('/api/session', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ client, requestId, command }), signal: AbortSignal.timeout(8000) });
         const data = await response.json();
         if (!response.ok) throw Error(data.error || 'Command failed');
         accept(data); setError(''); return data as Session;
@@ -35,10 +35,10 @@ export function useSession(tv: boolean) {
     let timer: ReturnType<typeof setTimeout>;
     const poll = async () => {
       await send({ type: 'heartbeat', role: tv ? 'tv' : 'controller' });
-      if (!cancelled) timer = setTimeout(poll, 800);
+      if (!cancelled) timer = setTimeout(poll, 2000);
     };
     void poll();
-    const watchdog = setInterval(() => { setNow(Date.now()); if (Date.now() - lastContact.current > 3500) setConnected(false); }, 250);
+    const watchdog = setInterval(() => { setNow(Date.now()); if (Date.now() - lastContact.current > 10000) setConnected(false); }, 250);
     return () => { cancelled = true; clearTimeout(timer); clearInterval(watchdog); };
   }, [client, tv, send]);
   const owner = connected && !!state?.owner && state.owner.id === client && state.owner.readyAt <= now && state.owner.expires > now;

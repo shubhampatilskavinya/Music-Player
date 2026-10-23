@@ -24,11 +24,11 @@ test('full-length progress never truncates a song at its catalog clip duration',
 test('TV takeover waits for the old lease and stale controllers cannot skip tracks', () => {
  const s = initialSession(); changeSession(s,{type:'heartbeat',role:'controller'},'a',100);
  changeSession(s,{type:'heartbeat',role:'tv'},'b',200);
- assert.equal(s.owner.id,'b'); assert.equal(s.owner.readyAt,5100);
+ assert.equal(s.owner.id,'b'); assert.equal(s.owner.readyAt,20100);
  changeSession(s,{type:'ended',serial:0},'b',300); assert.equal(s.index,0);
  changeSession(s,{type:'heartbeat',role:'tv'},'b',5000);
- changeSession(s,{type:'ended',serial:0},'a',5200); assert.equal(s.index,0);
- changeSession(s,{type:'ended',serial:0},'b',5200); assert.equal(s.index,1);
+ changeSession(s,{type:'ended',serial:0},'a',20200); assert.equal(s.index,0);
+ changeSession(s,{type:'ended',serial:0},'b',20200); assert.equal(s.index,1);
 });
 test('seek, pause, next and settings preserve the queue', () => {
  const s=initialSession(), n=s.queue.length;
@@ -42,7 +42,7 @@ test('seek, pause, next and settings preserve the queue', () => {
 test('only the silenced previous owner can complete a TV handoff early', () => {
  const s=initialSession();changeSession(s,{type:'heartbeat',role:'controller'},'a',100);
  changeSession(s,{type:'heartbeat',role:'tv'},'b',200);
- changeSession(s,{type:'release'},'stranger',300);assert.equal(s.owner.readyAt,5100);
+ changeSession(s,{type:'release'},'stranger',300);assert.equal(s.owner.readyAt,20100);
  changeSession(s,{type:'release'},'a',400);assert.equal(s.owner.readyAt,400);
  changeSession(s,{type:'ended',serial:0},'a',500);assert.equal(s.index,0);
 });

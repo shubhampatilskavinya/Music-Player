@@ -5,6 +5,9 @@ export type Session = {
   owner: { id: string; role: 'controller' | 'tv'; expires: number; readyAt: number; previous?: string } | null;
 };
 export type Command = { type: string; value?: number; song?: Song; serial?: number; time?: number; duration?: number; progressing?: boolean; role?: 'controller' | 'tv' };
+// Wide enough to absorb Vercel cold starts and Upstash REST latency; a same-process
+// local server would be fine with far less, but this lease is shared by both.
+export const LEASE_MS = 20000;
 export function initialSession(): Session {
   return { queue: [...songs], index: 0, playing: false, volume: .8, fade: 3, serial: 0, seek: 0, time: 0, duration: 0, revision: Date.now(), owner: null };
 }
@@ -26,7 +29,7 @@ export function changeSession(s: Session, cmd: Command, client: string, now = Da
       if (!active || s.owner!.id === client || (cmd.role === 'tv' && s.owner!.role === 'controller')) {
         const readyAt = active && s.owner!.id !== client ? s.owner!.expires : s.owner?.id === client ? s.owner.readyAt : now;
         const previous = active && s.owner!.id !== client ? s.owner!.id : s.owner?.previous;
-        s.owner = { id: client, role: cmd.role, expires: now + 5000, readyAt, previous };
+        s.owner = { id: client, role: cmd.role, expires: now + LEASE_MS, readyAt, previous };
       }
       break;
     }
