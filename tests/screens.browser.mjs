@@ -3,21 +3,31 @@ import assert from 'node:assert/strict';
 import { randomBytes } from 'node:crypto';
 const base=process.env.APP_URL || 'http://localhost:3000';
 const delay=ms=>new Promise(r=>setTimeout(r,ms));
-async function tab(path) {
- const info=await (await fetch('http://localhost:9222/json/new?'+encodeURIComponent(base+path),{method:'PUT'})).json();
+async function tab(path, {cookie} = {}) {
+ // Open at about:blank first so a host cookie can be injected before the gated page navigates.
+ const info=await (await fetch('http://localhost:9222/json/new?'+encodeURIComponent('about:blank'),{method:'PUT'})).json();
  const ws=new WebSocket(info.webSocketDebuggerUrl); await new Promise(r=>ws.addEventListener('open',r,{once:true}));
  let seq=0; const pending=new Map(), errors=[];
  ws.addEventListener('message',e=>{const m=JSON.parse(e.data);if(m.id){const p=pending.get(m.id);pending.delete(m.id);if(m.error)p.reject(m.error);else p.resolve(m.result);}if(m.method==='Runtime.exceptionThrown')errors.push(m.params.exceptionDetails.text);});
  const call=(method,params={})=>new Promise((resolve,reject)=>{const id=++seq;pending.set(id,{resolve,reject});ws.send(JSON.stringify({id,method,params}));});
- await call('Runtime.enable'); await call('Page.enable');
+ await call('Runtime.enable'); await call('Page.enable'); await call('Network.enable');
+ if (cookie) {
+  const [name,...rest]=cookie.split('=');
+  await call('Network.setCookie',{name,value:rest.join('='),url:base,sameSite:'Lax'});
+ }
+ await call('Page.navigate',{url: base+path});
  const evaluate=async (expression,userGesture=false)=>(await call('Runtime.evaluate',{expression,returnByValue:true,awaitPromise:true,userGesture})).result.value;
  return {call,evaluate,errors,close:async()=>{ws.close();await fetch('http://localhost:9222/json/close/'+info.id);}};
 }
 async function wait(fn,label,ms=25000){const end=Date.now()+ms;while(Date.now()<end){const v=await fn();if(v)return v;await delay(500);}throw Error('Timed out: '+label);}
 const state=async()=> (await fetch(base+'/api/session')).json();
 const client=randomBytes(16).toString('hex');
-const command=async command=>{const r=await fetch(base+'/api/session',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({client,requestId:randomBytes(16).toString('hex'),command})});assert.equal(r.status,200);return r.json();};
-const controller=await tab('/ipad'); let tv, extra;
+const login=await fetch(base+'/api/auth/host',{method:'POST',headers:{'Content-Type':'application/json',Origin:base},body:JSON.stringify({pin:process.env.MIRC_HOST_PIN})});
+assert.equal(login.status,200,'host login must succeed with MIRC_HOST_PIN set in the test environment');
+const cookie=login.headers.get('set-cookie')?.split(';')[0];
+assert.ok(cookie,'host login must set the identity cookie');
+const command=async command=>{const r=await fetch(base+'/api/session',{method:'POST',headers:{'Content-Type':'application/json',Cookie:cookie},body:JSON.stringify({client,requestId:randomBytes(16).toString('hex'),command})});assert.equal(r.status,200);return r.json();};
+const controller=await tab('/ipad',{cookie}); let tv, extra;
 try {
  await wait(()=>controller.evaluate('document.body.innerText.includes("Mirc Beats")'),'controller render');
  await controller.call('Emulation.setDeviceMetricsOverride',{width:820,height:1180,deviceScaleFactor:1,mobile:true});
@@ -52,7 +62,7 @@ try {
  assert.equal(await tv.evaluate('!!document.fullscreenElement'),true,'fullscreen');
  assert.equal(await controller.evaluate('document.documentElement.scrollWidth <= innerWidth'),true,'iPad overflow');
  await command({type:'play'});
- extra=await tab('/ipad');
+ extra=await tab('/ipad',{cookie});
  await wait(async()=>{const p=await playerState(extra), t=await playerState(tv);return p && p.muted && p.state===1 && Math.abs(p.time-t.time)<3 && p.time>95;},'new iPad screen joins continuing TV video');
  await extra.evaluate(`document.querySelector('[data-action="enable-player"]').click()`,true);
  await wait(async()=>{const p=await playerState(extra);return p && !p.muted && p.state===1;},'iPad Sound on here stays audible');

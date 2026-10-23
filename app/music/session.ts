@@ -1,10 +1,11 @@
 import { songs, type Song } from '../songs';
+import type { Identity } from '../auth/identity';
 export type Session = {
   queue: Song[]; index: number; playing: boolean; volume: number; fade: number;
   reportedAt?: number; progressing?: boolean; serial: number; seek: number; time: number; duration: number; revision: number;
   owner: { id: string; role: 'controller' | 'tv'; expires: number; readyAt: number; previous?: string } | null;
 };
-export type Command = { type: string; value?: number; song?: Song; serial?: number; time?: number; duration?: number; progressing?: boolean; role?: 'controller' | 'tv' };
+export type Command = { type: string; value?: number; song?: Song; serial?: number; time?: number; duration?: number; progressing?: boolean; role?: 'controller' | 'tv'; identity?: Identity };
 // Wide enough to absorb Vercel cold starts and Upstash REST latency; a same-process
 // local server would be fine with far less, but this lease is shared by both.
 export const LEASE_MS = 20000;
@@ -40,17 +41,34 @@ export function changeSession(s: Session, cmd: Command, client: string, now = Da
       const song = cmd.song;
       if (!song || typeof song.youtubeId !== 'string' || !/^[\w-]{11}$/.test(song.youtubeId) || typeof song.title !== 'string' || !song.title.trim()) throw Error('Invalid song');
       if (s.queue.length >= 500) throw Error('Playlist is full (500 songs).');
-      s.queue.splice(cmd.type === 'play-next' ? s.index + 1 : s.queue.length, 0, { id: Math.max(...s.queue.map(t => t.id), 0) + 1, youtubeId: song.youtubeId, title: song.title.slice(0, 250), artist: String(song.artist || 'YouTube').slice(0, 150), movie: 'YouTube request', duration: '', external: true, gradient: 'from-fuchsia-500 to-indigo-500' });
+      const requestedBy = cmd.identity ? { id: cmd.identity.id, name: cmd.identity.name } : undefined;
+      s.queue.splice(cmd.type === 'play-next' ? s.index + 1 : s.queue.length, 0, { id: Math.max(...s.queue.map(t => t.id), 0) + 1, youtubeId: song.youtubeId, title: song.title.slice(0, 250), artist: String(song.artist || 'YouTube').slice(0, 150), movie: 'YouTube request', duration: '', external: true, gradient: 'from-fuchsia-500 to-indigo-500', requestedBy });
       if (cmd.type === 'append-play') { select(s.queue.length - 1); s.playing = true; }
       break;
     }
     case 'remove': {
       const index = s.queue.findIndex(song => song.id === cmd.value);
       if (index < 0) break;
+      if (cmd.identity?.role === 'guest' && s.queue[index].requestedBy?.id !== cmd.identity.id) throw Error('You can only remove songs you added.');
       if (s.queue.length === 1) throw Error('Keep at least one song in the playlist.');
       s.queue.splice(index, 1);
       if (index < s.index) s.index--;
       else if (index === s.index) select(Math.min(index, s.queue.length - 1));
+      break;
+    }
+    case 'add-to-playlist': {
+      const song = cmd.song;
+      if (!song || typeof song.youtubeId !== 'string' || !/^[\w-]{11}$/.test(song.youtubeId) || typeof song.title !== 'string' || !song.title.trim()) throw Error('Invalid song');
+      if (s.queue.length >= 500) throw Error('Playlist is full (500 songs).');
+      s.queue.push({ id: Math.max(...s.queue.map(t => t.id), 0) + 1, youtubeId: song.youtubeId, title: song.title.slice(0, 250), artist: String(song.artist || 'YouTube').slice(0, 150), movie: 'YouTube request', duration: '', gradient: 'from-fuchsia-500 to-indigo-500' });
+      break;
+    }
+    case 'promote': {
+      const from = s.queue.findIndex(song => song.id === cmd.value);
+      if (from < 0 || from === s.index || from === s.index + 1) break;
+      const [song] = s.queue.splice(from, 1);
+      s.queue.splice((from < s.index ? s.index - 1 : s.index) + 1, 0, song);
+      if (from < s.index) s.index--;
       break;
     }
     case 'select': select(Math.trunc(number(cmd.value, 0, s.queue.length - 1))); s.playing = true; break;

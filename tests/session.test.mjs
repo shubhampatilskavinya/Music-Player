@@ -85,3 +85,66 @@ test('play next inserts requests after the current song without interrupting pla
  while(s.queue.length<500) s.queue.push({...s.queue[0],id:s.queue.length+1});
  assert.throws(()=>changeSession(s,{type:'play-next',song:{youtubeId:'M7lc1UVf-VE',title:'Over limit'}},'guest'),/full/);
 });
+
+test('appended and play-next songs carry requester attribution only when an identity is given', () => {
+ const s=initialSession();
+ changeSession(s,{type:'append',song:{youtubeId:'M7lc1UVf-VE',title:'No identity'}},'a');
+ assert.equal(s.queue.at(-1).requestedBy,undefined);
+ changeSession(s,{type:'append',song:{youtubeId:'M7lc1UVf-VE',title:'From a guest'},identity:{role:'guest',id:'g1',name:'Priya'}},'a');
+ assert.deepEqual(s.queue.at(-1).requestedBy,{id:'g1',name:'Priya'});
+ changeSession(s,{type:'play-next',song:{youtubeId:'M7lc1UVf-VE',title:'From the host'},identity:{role:'host',id:'host',name:'Mirc'}},'a');
+ assert.deepEqual(s.queue[s.index+1].requestedBy,{id:'host',name:'Mirc'});
+});
+
+test('a guest can only remove the song they added; the host can remove anything', () => {
+ const s=initialSession();
+ changeSession(s,{type:'append',song:{youtubeId:'M7lc1UVf-VE',title:'Priya song'},identity:{role:'guest',id:'g1',name:'Priya'}},'a');
+ const priyaSongId=s.queue.at(-1).id;
+ changeSession(s,{type:'append',song:{youtubeId:'M7lc1UVf-VE',title:'Rahul song'},identity:{role:'guest',id:'g2',name:'Rahul'}},'a');
+ const rahulSongId=s.queue.at(-1).id;
+ assert.throws(()=>changeSession(s,{type:'remove',value:rahulSongId,identity:{role:'guest',id:'g1',name:'Priya'}},'a'),/only remove songs you added/);
+ assert.equal(s.queue.some(song=>song.id===rahulSongId),true);
+ changeSession(s,{type:'remove',value:priyaSongId,identity:{role:'guest',id:'g1',name:'Priya'}},'a');
+ assert.equal(s.queue.some(song=>song.id===priyaSongId),false);
+ changeSession(s,{type:'remove',value:rahulSongId,identity:{role:'host',id:'host',name:'Mirc'}},'a');
+ assert.equal(s.queue.some(song=>song.id===rahulSongId),false);
+ const untouchedId=s.queue[0].id, lengthBefore=s.queue.length;
+ changeSession(s,{type:'remove',value:untouchedId},'a');
+ assert.equal(s.queue.length,lengthBefore-1);
+ assert.equal(s.queue.some(song=>song.id===untouchedId),false);
+});
+
+test('add-to-playlist permanently appends a song without requester attribution', () => {
+ const s=initialSession(), original=structuredClone(s.queue);
+ changeSession(s,{type:'add-to-playlist',song:{youtubeId:'M7lc1UVf-VE',title:'New catalog song'}},'a');
+ assert.deepEqual(s.queue.slice(0,-1),original);
+ assert.equal(s.queue.at(-1).title,'New catalog song');
+ assert.equal(s.queue.at(-1).requestedBy,undefined);
+ assert.equal(s.queue.at(-1).external,undefined);
+ assert.throws(()=>changeSession(s,{type:'add-to-playlist',song:{youtubeId:'invalid',title:'Bad'}},'a'));
+ while(s.queue.length<500) s.queue.push({...s.queue[0],id:s.queue.length+1});
+ assert.throws(()=>changeSession(s,{type:'add-to-playlist',song:{youtubeId:'M7lc1UVf-VE',title:'Over limit'}},'a'),/full/);
+});
+
+test('promote moves an already-queued song to play next, and no-ops for invalid targets', () => {
+ const s=initialSession();
+ const originalLength=s.queue.length;
+ changeSession(s,{type:'promote',value:s.queue[s.index].id},'a');
+ assert.equal(s.queue.length,originalLength); assert.equal(s.index,0);
+ changeSession(s,{type:'promote',value:s.queue[s.index+1].id},'a');
+ assert.equal(s.queue.length,originalLength); assert.equal(s.index,0);
+ changeSession(s,{type:'promote',value:999999},'a');
+ assert.equal(s.queue.length,originalLength);
+ const laterSongId=s.queue[10].id;
+ changeSession(s,{type:'promote',value:laterSongId},'a');
+ assert.equal(s.queue.length,originalLength);
+ assert.equal(s.queue[s.index+1].id,laterSongId);
+ assert.equal(s.index,0);
+ const s2=initialSession();
+ changeSession(s2,{type:'select',value:5},'a');
+ const earlierSongId=s2.queue[1].id;
+ changeSession(s2,{type:'promote',value:earlierSongId},'a');
+ assert.equal(s2.index,4);
+ assert.equal(s2.queue[5].id,earlierSongId);
+ assert.equal(s2.queue.length,originalLength);
+});

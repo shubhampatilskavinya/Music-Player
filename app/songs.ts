@@ -8,6 +8,7 @@ export type Song = {
   external?: boolean;
   gradient: string;
   youtubeId: string;
+  requestedBy?: { id: string; name: string };
 };
 
 const gradients = [
