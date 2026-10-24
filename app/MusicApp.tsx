@@ -24,10 +24,11 @@ export default function MusicApp({ tv = false, ipad = false, identity, partyCode
   const upcomingSong = playlist[(currentIndex + 1) % playlist.length];
   const isPlaying = state?.playing || false;
   const playerReady = connected && !!state;
-  const currentTime = state?.time || 0;
+  const [dragTime, setDragTime] = useState<number | null>(null);
+  const currentTime = dragTime ?? (state?.time || 0);
   const duration = state?.duration || 0;
   const volume = state?.volume ?? .8;
-  const fadeSeconds = state?.fade ?? 3;
+  const fadeSeconds = state?.fade ?? 10;
   const [query, setQuery] = useState('');
   const [selectedResult, setSelectedResult] = useState<string | null>(null);
   const [addingRequest, setAddingRequest] = useState(false);
@@ -37,6 +38,8 @@ export default function MusicApp({ tv = false, ipad = false, identity, partyCode
   const [feedback, setFeedback] = useState('');
   const [address, setAddress] = useState('');
   const [catalogOpen, setCatalogOpen] = useState(false);
+  const [insertPosition, setInsertPosition] = useState('');
+  const parsedPosition = insertPosition.trim() && Number(insertPosition) >= 1 ? Math.trunc(Number(insertPosition)) : undefined;
   // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { setAddress(location.origin); }, []);
   const upcomingQueue = playlist.slice(currentIndex + 1);
@@ -78,17 +81,29 @@ export default function MusicApp({ tv = false, ipad = false, identity, partyCode
     setSearchLoading(value.trim().length >= 2);
   };
 
-  const playSearchResult = async (result: SearchResult, type: 'play-next' | 'append' | 'append-play' | 'add-to-playlist') => {
+  const playSearchResult = async (result: SearchResult, type: 'play-next' | 'append' | 'append-play' | 'add-to-playlist', position?: number) => {
     if (addingRequest) return;
     setAddingRequest(true);
     if (type === 'append-play') window.dispatchEvent(new Event('mirc-sound'));
     const song: Song = { id: 0, title: result.title, artist: result.channel, movie: 'YouTube request', duration: '', gradient: 'from-fuchsia-500 to-indigo-500', youtubeId: result.videoId };
     try {
-      if (await send({ type, song })) {
-        setFeedback(type === 'append-play' ? `Playing ${result.title}. Added to your playlist.` : type === 'play-next' ? `${result.title} will play next.` : type === 'add-to-playlist' ? `${result.title} added to the playlist permanently.` : `${result.title} added to the end of your queue.`);
-        updateQuery('');
+      if (await send(position ? { type, song, position } : { type, song })) {
+        setFeedback(
+          type === 'add-to-playlist' ? (position ? `${result.title} added to the playlist at #${position}.` : `${result.title} added to the playlist permanently.`)
+          : position ? `${result.title} will play in upcoming position ${position}.`
+          : type === 'append-play' ? `Playing ${result.title}. Added to your playlist.`
+          : type === 'play-next' ? `${result.title} will play next.`
+          : `${result.title} added to the end of your queue.`
+        );
+        updateQuery(''); setInsertPosition('');
       }
     } finally { setAddingRequest(false); }
+  };
+  // Moves any already-queued song (a request or a catalog track) to an exact upcoming slot
+  // (1 = next), counting every upcoming song, matching how the queue panel numbers them.
+  const moveSong = (song: Song, delta: number) => {
+    const current = playlist.indexOf(song) - currentIndex;
+    void send({ type: 'reorder', value: song.id, position: Math.max(1, current + delta) });
   };
   // Always dispatch, even when pausing: on a fresh page load the session can already say
   // "playing" (e.g. the party was already going), so the browser blocks that unrequested
@@ -102,9 +117,17 @@ export default function MusicApp({ tv = false, ipad = false, identity, partyCode
   const goNext = () => void send({ type: 'next' });
   const setVolume = (value: number) => void send({ type: 'volume', value });
   const setFadeSeconds = (value: number) => void send({ type: 'fade', value });
-  const handleSeek = (e: React.ChangeEvent<HTMLInputElement>) => void send({ type: 'seek', value: Number(e.target.value) });
+  // Track the drag locally and only send 'seek' on release: sending (and rendering the
+  // server's round-tripped position back into this controlled input) on every drag tick
+  // fought the user's own in-progress drag, making the bar feel laggy/jumpy while scrubbing.
+  const dragSeek = (e: React.ChangeEvent<HTMLInputElement>) => setDragTime(Number(e.target.value));
+  const commitSeek = (e: React.SyntheticEvent<HTMLInputElement>) => {
+    const value = Number(e.currentTarget.value);
+    setDragTime(value);
+    void send({ type: 'seek', value }).finally(() => setDragTime(null));
+  };
   const progressPct = duration > 0 ? currentTime / duration * 100 : 0;
-  const fullscreen = async () => { try { const video = document.querySelector<HTMLElement>(".youtube-host"); if (!video?.requestFullscreen) throw new Error("Fullscreen unavailable"); await video.requestFullscreen(); } catch { setFeedback('Tap the fullscreen icon inside the YouTube video. For TV mirroring, rotate your iPad to landscape.'); } };
+  const fullscreen = async () => { try { const video = document.querySelector<HTMLElement>(".youtube-stage"); if (!video?.requestFullscreen) throw new Error("Fullscreen unavailable"); await video.requestFullscreen(); } catch { setFeedback('Tap the fullscreen icon inside the YouTube video. For TV mirroring, rotate your iPad to landscape.'); } };
   const switchScreen = (next: 'controller' | 'ipad' | 'tv') => {
     // Keep the same iframe and its browser audio permission alive.
     if (isPlaying) window.dispatchEvent(new Event('mirc-play'));
@@ -126,8 +149,6 @@ export default function MusicApp({ tv = false, ipad = false, identity, partyCode
         </header>
 
         <main id="playlist" className="content">
-          {!displayView && <p className="screen-help">For a separate TV, open <strong>{address}/tv</strong> on the same Wi-Fi. <a href="/tv" target="_blank" rel="noreferrer">Open separate TV window ↗</a></p>}
-
           {query.trim().length >= 2 && (
             <section className="youtube-results" aria-labelledby="youtube-results-title">
               <div className="section-heading"><div><span className="eyebrow">SONG REQUESTS</span><h2 id="youtube-results-title">YouTube search results</h2></div><span className="count-pill">{searchLoading ? "Searching…" : `${searchResults.length} videos`}</span></div>
@@ -142,10 +163,14 @@ export default function MusicApp({ tv = false, ipad = false, identity, partyCode
                     <span className="track-duration">Choose ▾</span>
                   </button>
                   <div id={`request-${result.videoId}`} className="request-actions" hidden={selectedResult !== result.videoId} aria-label={`Options for ${result.title}`}>
-                    <button disabled={addingRequest} onClick={() => void playSearchResult(result, "play-next")}>Play next</button>
+                    <button disabled={addingRequest} onClick={() => void playSearchResult(result, "play-next", parsedPosition)}>{parsedPosition ? `Play at upcoming #${parsedPosition}` : "Play next"}</button>
                     <button disabled={addingRequest} onClick={() => void playSearchResult(result, "append")}>Add to queue</button>
                     <button disabled={addingRequest} onClick={() => void playSearchResult(result, "append-play")}>Play now</button>
-                    <button disabled={addingRequest} onClick={() => void playSearchResult(result, "add-to-playlist")}>Add to playlist</button>
+                    <button disabled={addingRequest} onClick={() => void playSearchResult(result, "add-to-playlist", parsedPosition)}>{parsedPosition ? `Add to playlist at #${parsedPosition}` : "Add to playlist"}</button>
+                    <span className="request-position">
+                      <input type="number" min={1} inputMode="numeric" placeholder="#" aria-label={`Preferred position for ${result.title}`} value={insertPosition} onChange={(e) => setInsertPosition(e.target.value)} />
+                      <small>optional position</small>
+                    </span>
                   </div>
                   </div>
                 ))}
@@ -160,10 +185,14 @@ export default function MusicApp({ tv = false, ipad = false, identity, partyCode
                   <div className="section-heading"><div><span className="eyebrow">UP NEXT</span><h2 id="tracks-title">Your queue.</h2></div><span className="count-pill">{requestedUpcoming.length} requested</span></div>
                   {feedback && <p className="embed-notice" role="status">{feedback}</p>}{connection.error && <p className="embed-notice" role="alert">{connection.error}</p>}
                   <ul className="queue-list">
-                    {requestedUpcoming.map((song) => (
+                    {requestedUpcoming.map((song, i) => (
                       <li key={song.id} className="queue-row">
                         <span className={`track-art bg-gradient-to-br ${song.gradient}`}><MusicNoteIcon /></span>
                         <span className="queue-row-info"><strong>{song.title}</strong><small>Added by {song.requestedBy?.name ?? "Mirc"}</small></span>
+                        <span className="queue-row-move">
+                          <button aria-label={`Move ${song.title} earlier`} disabled={i === 0} onClick={() => moveSong(song, -1)}>▲</button>
+                          <button aria-label={`Move ${song.title} later`} disabled={i === requestedUpcoming.length - 1} onClick={() => moveSong(song, 1)}>▼</button>
+                        </span>
                         <button aria-label={`Play ${song.title} next`} onClick={() => void send({ type: "promote", value: song.id })}><NextIcon /></button>
                         <button aria-label={`Remove ${song.title}`} onClick={() => void send({ type: "remove", value: song.id })}>×</button>
                       </li>
@@ -179,6 +208,7 @@ export default function MusicApp({ tv = false, ipad = false, identity, partyCode
                         {catalogSongs.map((song, catalogIndex) => {
                           const liveIndex = playlist.indexOf(song);
                           const isCurrent = liveIndex === currentIndex;
+                          const isUpcoming = liveIndex > currentIndex;
                           return (
                             <li key={song.id} className="catalog-row">
                               <button onClick={() => selectSong(liveIndex)} className={`track-row ${isCurrent ? "current" : ""}`} aria-current={isCurrent ? "true" : undefined} aria-label={`${isCurrent && isPlaying ? "Pause" : "Play"} ${song.title} by ${song.artist}`}>
@@ -186,6 +216,10 @@ export default function MusicApp({ tv = false, ipad = false, identity, partyCode
                                 <span className="track-info"><span className={`track-art bg-gradient-to-br ${song.gradient}`}><MusicNoteIcon /><span className="track-art-play">{isCurrent && isPlaying ? <PauseIcon /> : <PlayIcon />}</span></span><span className="track-text"><strong>{song.title}</strong><span>{song.artist}</span></span></span>
                                 <span className="movie-column">{song.movie}</span><span className="track-duration">{isCurrent && duration ? formatTime(duration) : "Full"}</span>
                               </button>
+                              <span className="queue-row-move">
+                                <button aria-label={`Move ${song.title} earlier`} disabled={!isUpcoming || liveIndex === currentIndex + 1} onClick={() => moveSong(song, -1)}>▲</button>
+                                <button aria-label={`Move ${song.title} later`} disabled={!isUpcoming || liveIndex === playlist.length - 1} onClick={() => moveSong(song, 1)}>▼</button>
+                              </span>
                               <button className="catalog-delete" aria-label={`Delete ${song.title} from the playlist`} onClick={() => void send({ type: "remove", value: song.id })}>×</button>
                             </li>
                           );
@@ -210,11 +244,11 @@ export default function MusicApp({ tv = false, ipad = false, identity, partyCode
 
       <footer className="player-bar" aria-label="Playback controls">
         <div className="player-song"><span className={`track-art bg-gradient-to-br ${currentSong.gradient}`}><MusicNoteIcon /></span><div><strong>{currentSong.title}</strong><span>{currentSong.artist}</span></div></div>
-        <div className="player-center"><div className="transport"><button onClick={goPrev} disabled={!playerReady} aria-label="Previous song"><PrevIcon /></button><button className="play-button" onClick={togglePlayPause} disabled={!playerReady} aria-label={isPlaying ? "Pause" : "Play"}>{isPlaying ? <PauseIcon /> : <PlayIcon />}</button><button onClick={goNext} disabled={!playerReady} aria-label="Next song"><NextIcon /></button></div><div className="seek-control"><span>{formatTime(currentTime)}</span><input aria-label="Seek playback" type="range" min={0} max={duration || 0} step={0.1} value={Math.min(currentTime, duration || 0)} onChange={handleSeek} disabled={!duration} style={{ background: `linear-gradient(to right, #c4b5fd ${progressPct}%, #34313e ${progressPct}%)` }} /><span>{formatTime(duration)}</span></div></div>
+        <div className="player-center"><div className="transport"><button onClick={goPrev} disabled={!playerReady} aria-label="Previous song"><PrevIcon /></button><button className="play-button" onClick={togglePlayPause} disabled={!playerReady} aria-label={isPlaying ? "Pause" : "Play"}>{isPlaying ? <PauseIcon /> : <PlayIcon />}</button><button onClick={goNext} disabled={!playerReady} aria-label="Next song"><NextIcon /></button></div><div className="seek-control"><span>{formatTime(currentTime)}</span><input aria-label="Seek playback" type="range" min={0} max={duration || 0} step={0.1} value={Math.min(currentTime, duration || 0)} onChange={dragSeek} onPointerUp={commitSeek} onKeyUp={commitSeek} disabled={!duration} style={{ background: `linear-gradient(to right, #c4b5fd ${progressPct}%, #34313e ${progressPct}%)` }} /><span>{formatTime(duration)}</span></div></div>
         <div className="player-options">
           <label className="fade-control" title="YouTube allows one playing video at a time. Loading may leave a gap.">Transition
             <select aria-label="Transition duration" aria-describedby="fade-description" value={fadeSeconds} onChange={e => setFadeSeconds(Number(e.target.value))}>
-              <option value={0}>Off</option><option value={2}>2s</option><option value={3}>3s</option><option value={5}>5s</option><option value={8}>8s</option>
+              <option value={0}>Off</option><option value={2}>2s</option><option value={3}>3s</option><option value={5}>5s</option><option value={8}>8s</option><option value={10}>10s</option><option value={15}>15s</option>
             </select>
           </label>
           <span id="fade-description" className="fade-description">YouTube fade-out / fade-in</span>

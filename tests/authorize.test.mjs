@@ -8,7 +8,7 @@ const { authorizeCommand } = await import(url(compile('app/auth/authorize.ts')))
 
 const host = { role: 'host', id: 'host', name: 'Mirc' };
 const guest = { role: 'guest', id: 'g1', name: 'Guest' };
-const PARTY_CONTROL = ['next', 'previous', 'seek', 'volume', 'fade', 'select', 'append-play', 'promote', 'add-to-playlist'];
+const PARTY_CONTROL = ['next', 'previous', 'seek', 'volume', 'fade', 'select', 'append-play', 'promote', 'add-to-playlist', 'reorder'];
 const LEASE = ['heartbeat', 'release', 'ended', 'report', 'play', 'pause'];
 
 test('lease commands pass with no identity', () => {

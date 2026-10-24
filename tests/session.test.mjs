@@ -126,6 +126,20 @@ test('add-to-playlist permanently appends a song without requester attribution',
  assert.throws(()=>changeSession(s,{type:'add-to-playlist',song:{youtubeId:'M7lc1UVf-VE',title:'Over limit'}},'a'),/full/);
 });
 
+test('add-to-playlist with a position inserts at that exact catalog row, shifting the index if needed', () => {
+ const s=initialSession(), originalLength=s.queue.length;
+ changeSession(s,{type:'select',value:5},'a');
+ const songAtFive=s.queue[5].id;
+ changeSession(s,{type:'add-to-playlist',song:{youtubeId:'M7lc1UVf-VE',title:'Inserted at 3'},position:3},'a');
+ assert.equal(s.queue.length,originalLength+1);
+ assert.equal(s.queue[2].title,'Inserted at 3');
+ assert.equal(s.index,6);
+ assert.equal(s.queue[s.index].id,songAtFive);
+ const s2=initialSession();
+ changeSession(s2,{type:'add-to-playlist',song:{youtubeId:'M7lc1UVf-VE',title:'Beyond the end'},position:9999},'a');
+ assert.equal(s2.queue.at(-1).title,'Beyond the end');
+});
+
 test('promote moves an already-queued song to play next, and no-ops for invalid targets', () => {
  const s=initialSession();
  const originalLength=s.queue.length;
@@ -147,4 +161,34 @@ test('promote moves an already-queued song to play next, and no-ops for invalid 
  assert.equal(s2.index,4);
  assert.equal(s2.queue[5].id,earlierSongId);
  assert.equal(s2.queue.length,originalLength);
+});
+
+test('a host can insert a play-next request at an exact upcoming position; others cannot', () => {
+ const s=initialSession();
+ changeSession(s,{type:'play-next',song:{youtubeId:'M7lc1UVf-VE',title:'At position 3'},position:3,identity:{role:'host',id:'host',name:'Mirc'}},'a');
+ assert.equal(s.queue[s.index+3].title,'At position 3');
+ const s2=initialSession();
+ changeSession(s2,{type:'play-next',song:{youtubeId:'M7lc1UVf-VE',title:'Guest tries position'},position:3,identity:{role:'guest',id:'g1',name:'Priya'}},'a');
+ assert.equal(s2.queue[s2.index+1].title,'Guest tries position');
+ const s3=initialSession();
+ changeSession(s3,{type:'play-next',song:{youtubeId:'M7lc1UVf-VE',title:'No identity'},position:3},'a');
+ assert.equal(s3.queue[s3.index+1].title,'No identity');
+});
+
+test('reorder moves an already-queued song to an exact upcoming slot, and no-ops for invalid targets', () => {
+ const s=initialSession(), originalLength=s.queue.length;
+ const targetId=s.queue[10].id;
+ changeSession(s,{type:'reorder',value:targetId,position:2},'a');
+ assert.equal(s.queue.length,originalLength);
+ assert.equal(s.queue[s.index+2].id,targetId);
+ changeSession(s,{type:'reorder',value:s.queue[s.index].id,position:1},'a');
+ assert.equal(s.queue.length,originalLength);
+ changeSession(s,{type:'reorder',value:999999,position:1},'a');
+ assert.equal(s.queue.length,originalLength);
+ const s2=initialSession();
+ changeSession(s2,{type:'select',value:10},'a');
+ const earlierId=s2.queue[2].id;
+ changeSession(s2,{type:'reorder',value:earlierId,position:3},'a');
+ assert.equal(s2.queue.length,originalLength);
+ assert.equal(s2.queue[s2.index+3].id,earlierId);
 });
